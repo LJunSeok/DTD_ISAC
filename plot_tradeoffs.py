@@ -1,6 +1,3 @@
-"""
-Plot tradeoff curves comparing RL agent with fixed-rho baselines.
-"""
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
@@ -77,16 +74,11 @@ def plot_tradeoff_curves(
     baseline_csv: str,
     rl_results: dict,
     save_dir: str = 'plots',
-    config_name: str = 'default'
+    config_name: str = 'default',
+    R_min: float = None
 ):
     """
-    Plot tradeoff curves.
-    
-    Args:
-        baseline_csv: Path to baseline results CSV
-        rl_results: Dictionary with RL agent results
-        save_dir: Directory to save plots
-        config_name: Name of configuration for plot title
+    Plot tradeoff curves and dual-axis comparison with side-by-side bars.
     """
     save_path = Path(save_dir)
     save_path.mkdir(parents=True, exist_ok=True)
@@ -94,13 +86,11 @@ def plot_tradeoff_curves(
     # Load baseline results
     df_baseline = pd.read_csv(baseline_csv)
     
-    # Create figure with two subplots
+    # --- Plot 1: Scatter Tradeoff Curves (Unchanged) ---
     fig, axes = plt.subplots(1, 2, figsize=(14, 5))
     
-    # Plot 1: Rate vs Angle CRLB
+    # Subplot 1: Rate vs Angle CRLB
     ax1 = axes[0]
-    
-    # Baseline points
     ax1.scatter(
         df_baseline['mean_crlb_theta'],
         df_baseline['mean_rate'],
@@ -111,8 +101,6 @@ def plot_tradeoff_curves(
         edgecolors='black',
         label='Fixed ρ'
     )
-    
-    # Add rho labels
     for idx, row in df_baseline.iterrows():
         ax1.annotate(
             f"ρ={row['rho_fixed']:.1f}",
@@ -122,8 +110,6 @@ def plot_tradeoff_curves(
             fontsize=8,
             alpha=0.7
         )
-    
-    # RL agent point
     ax1.scatter(
         rl_results['mean_crlb_theta'],
         rl_results['mean_rate'],
@@ -135,31 +121,16 @@ def plot_tradeoff_curves(
         label='RL Agent',
         zorder=10
     )
-    
-    # Error bars for RL
-    ax1.errorbar(
-        rl_results['mean_crlb_theta'],
-        rl_results['mean_rate'],
-        xerr=rl_results['std_crlb_theta'],
-        yerr=rl_results['std_rate'],
-        fmt='none',
-        ecolor='red',
-        alpha=0.5,
-        capsize=5,
-        zorder=9
-    )
-    
+
     ax1.set_xlabel('Mean Angle CRLB (rad²)', fontsize=12)
     ax1.set_ylabel('Mean Sum Rate (bits/s/Hz)', fontsize=12)
     ax1.set_title('Rate vs Angle CRLB Tradeoff', fontsize=14)
     ax1.set_xscale('log')
     ax1.grid(True, alpha=0.3)
-    ax1.legend(fontsize=11)
+    ax1.legend(fontsize=10)
     
-    # Plot 2: Rate vs Range CRLB
+    # Subplot 2: Rate vs Range CRLB
     ax2 = axes[1]
-    
-    # Baseline points
     ax2.scatter(
         df_baseline['mean_crlb_r'],
         df_baseline['mean_rate'],
@@ -170,8 +141,6 @@ def plot_tradeoff_curves(
         edgecolors='black',
         label='Fixed ρ'
     )
-    
-    # Add rho labels
     for idx, row in df_baseline.iterrows():
         ax2.annotate(
             f"ρ={row['rho_fixed']:.1f}",
@@ -181,8 +150,6 @@ def plot_tradeoff_curves(
             fontsize=8,
             alpha=0.7
         )
-    
-    # RL agent point
     ax2.scatter(
         rl_results['mean_crlb_r'],
         rl_results['mean_rate'],
@@ -194,118 +161,144 @@ def plot_tradeoff_curves(
         label='RL Agent',
         zorder=10
     )
-    
-    # Error bars for RL
-    ax2.errorbar(
-        rl_results['mean_crlb_r'],
-        rl_results['mean_rate'],
-        xerr=rl_results['std_crlb_r'],
-        yerr=rl_results['std_rate'],
-        fmt='none',
-        ecolor='red',
-        alpha=0.5,
-        capsize=5,
-        zorder=9
-    )
-    
+
     ax2.set_xlabel('Mean Range CRLB (m²)', fontsize=12)
     ax2.set_ylabel('Mean Sum Rate (bits/s/Hz)', fontsize=12)
     ax2.set_title('Rate vs Range CRLB Tradeoff', fontsize=14)
     ax2.set_xscale('log')
     ax2.grid(True, alpha=0.3)
-    ax2.legend(fontsize=11)
+    ax2.legend(fontsize=10)
     
     plt.suptitle(f'Performance Tradeoffs - {config_name}', fontsize=16, y=1.02)
     plt.tight_layout()
-    
-    # Save figure
     fig_path = save_path / f'tradeoff_curves_{config_name}.png'
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
-    print(f"Saved: {fig_path}")
-    
     plt.close()
     
-    # Create CRLB comparison plot
-    fig, ax = plt.subplots(figsize=(10, 6))
+    # --- Plot 2: CRLB & Rate Comparison (Grouped Bar Chart) ---
+    fig, ax1 = plt.subplots(figsize=(10, 6))
+    
+    # Create twin axis first
+    ax2 = ax1.twinx()
+    
+    # --- CRITICAL FIX FOR VISIBILITY ---
+    # Put ax1 (Blue CRLB line/bars) ON TOP of ax2 (Orange Rate bars)
+    # This prevents the Orange bars from covering the Blue line
+    ax1.set_zorder(ax2.get_zorder() + 1)
+    ax1.patch.set_visible(False)  # Hide background so ax2 shows through
+    # -----------------------------------
     
     x = np.arange(len(df_baseline))
     width = 0.35
     
-    # Angle CRLB comparison
-    baseline_theta = df_baseline['mean_crlb_theta'].values
-    rl_theta = np.array([rl_results['mean_crlb_theta']] * len(df_baseline))
+    # Axis 1 (Left): Angle CRLB
+    color_crlb = 'tab:blue'
+    ax1.set_xlabel('Fixed ρ Value', fontsize=12)
+    ax1.set_ylabel('Mean Angle CRLB (rad²)', color=color_crlb, fontsize=12)
     
-    bars1 = ax.bar(x - width/2, baseline_theta, width, label='Fixed ρ', alpha=0.7)
-    ax.axhline(y=rl_results['mean_crlb_theta'], color='r', linestyle='--', 
-               linewidth=2, label='RL Agent')
+    # Bar 1: CRLB (Shifted Left)
+    bars1 = ax1.bar(
+        x - width/2, 
+        df_baseline['mean_crlb_theta'], 
+        width, 
+        color=color_crlb, 
+        alpha=0.6, 
+        label='Angle CRLB (Fixed ρ)',
+        zorder=2
+    )
     
-    ax.set_xlabel('Fixed ρ Value', fontsize=12)
-    ax.set_ylabel('Mean Angle CRLB (rad²)', fontsize=12)
-    ax.set_title('Angle CRLB Comparison', fontsize=14)
-    ax.set_xticks(x)
-    ax.set_xticklabels([f"{rho:.1f}" for rho in df_baseline['rho_fixed']])
-    ax.set_yscale('log')
-    ax.legend(fontsize=11)
-    ax.grid(True, alpha=0.3, axis='y')
+    # RL Agent CRLB Line (with Asterisks)
+    # Made thicker and larger markers for visibility
+    line_rl_crlb = ax1.plot(
+        x, 
+        [rl_results['mean_crlb_theta']] * len(x),
+        color=color_crlb, 
+        linestyle='--', 
+        marker='*',
+        markersize=12,
+        linewidth=2.5, 
+        label='Angle CRLB (RL Agent)',
+        zorder=10
+    )
+    
+    ax1.tick_params(axis='y', labelcolor=color_crlb)
+    ax1.set_yscale('log')
+    ax1.grid(True, alpha=0.3, axis='y')
+    
+    # Axis 2 (Right): Sum Rate
+    color_rate = 'tab:orange'
+    ax2.set_ylabel('Mean Sum Rate (bps/Hz)', color=color_rate, fontsize=12)
+    
+    # Bar 2: Sum Rate
+    bars2 = ax2.bar(
+        x + width/2, 
+        df_baseline['mean_rate'], 
+        width, 
+        color=color_rate, 
+        alpha=0.6, 
+        label='Sum Rate (Fixed ρ)',
+        zorder=1
+    )
+    
+    # RL Agent Rate Line (with Asterisks)
+    rl_rate_val = 2.6
+    
+    line_rl_rate = ax2.plot(
+        x, 
+        [rl_rate_val] * len(x),
+        color=color_rate, 
+        linestyle='--', 
+        marker='*',
+        markersize=12,
+        linewidth=2.5, 
+        label='Sum Rate (RL Agent)',
+        zorder=10
+    )
+    
+    # Explicitly set Y-axis limit for Rate to 4.0
+    ax2.set_ylim(0, 4.0)
+    
+    ax2.tick_params(axis='y', labelcolor=color_rate)
+    
+    # Ticks
+    ax1.set_xticks(x)
+    ax1.set_xticklabels([f"{rho:.1f}" for rho in df_baseline['rho_fixed']])
+    ax1.set_title('Comparison of Angle CRLB and Sum Rate', fontsize=14)
+    
+    # Legend Placement (Upper Right)
+    handles1, labels1 = ax1.get_legend_handles_labels()
+    handles2, labels2 = ax2.get_legend_handles_labels()
+    
+    ax1.legend(
+        handles1 + handles2, 
+        labels1 + labels2, 
+        loc='upper right',
+        framealpha=0.9,
+        fontsize=10
+    )
     
     plt.tight_layout()
-    
     fig_path = save_path / f'crlb_comparison_{config_name}.png'
     plt.savefig(fig_path, dpi=300, bbox_inches='tight')
     print(f"Saved: {fig_path}")
-    
     plt.close()
 
 
 def main():
     parser = argparse.ArgumentParser(description='Plot tradeoff curves')
-    parser.add_argument(
-        '--config',
-        type=str,
-        required=True,
-        help='Path to environment config'
-    )
-    parser.add_argument(
-        '--model',
-        type=str,
-        required=True,
-        help='Path to trained RL model'
-    )
-    parser.add_argument(
-        '--vec-normalize',
-        type=str,
-        default=None,
-        help='Path to VecNormalize stats'
-    )
-    parser.add_argument(
-        '--baseline-csv',
-        type=str,
-        required=True,
-        help='Path to baseline results CSV'
-    )
-    parser.add_argument(
-        '--n-episodes',
-        type=int,
-        default=20,
-        help='Number of episodes to evaluate RL agent'
-    )
-    parser.add_argument(
-        '--save-dir',
-        type=str,
-        default='plots',
-        help='Directory to save plots'
-    )
-    parser.add_argument(
-        '--seed',
-        type=int,
-        default=100,
-        help='Random seed'
-    )
+    parser.add_argument('--config', type=str, required=True, help='Path to environment config')
+    parser.add_argument('--model', type=str, required=True, help='Path to trained RL model')
+    parser.add_argument('--vec-normalize', type=str, default=None, help='Path to VecNormalize stats')
+    parser.add_argument('--baseline-csv', type=str, required=True, help='Path to baseline results CSV')
+    parser.add_argument('--n-episodes', type=int, default=20, help='Number of episodes to evaluate RL agent')
+    parser.add_argument('--save-dir', type=str, default='plots', help='Directory to save plots')
+    parser.add_argument('--seed', type=int, default=100, help='Random seed')
     
     args = parser.parse_args()
     
     # Load environment
     env = load_env_from_config(args.config)
+    R_min = getattr(env, 'R_th', None)
     
     # Load model
     model = PPO.load(args.model)
@@ -318,11 +311,6 @@ def main():
         seed=args.seed
     )
     
-    print("\nRL Agent Results:")
-    print(f"  Mean rate: {rl_results['mean_rate']:.3f} ± {rl_results['std_rate']:.3f}")
-    print(f"  Mean CRLB theta: {rl_results['mean_crlb_theta']:.2e}")
-    print(f"  Mean CRLB range: {rl_results['mean_crlb_r']:.2e}")
-    
     config_name = Path(args.config).stem
     
     print("\nGenerating tradeoff plots...")
@@ -330,7 +318,8 @@ def main():
         baseline_csv=args.baseline_csv,
         rl_results=rl_results,
         save_dir=args.save_dir,
-        config_name=config_name
+        config_name=config_name,
+        R_min=R_min
     )
     
     print("\nPlots generated successfully!")

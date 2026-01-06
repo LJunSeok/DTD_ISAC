@@ -67,15 +67,15 @@ def configure_env_for_scenario(env, ep_idx):
         env.mobility_config = {'ax': 2.0, 'ay': 0.0}
     elif ep_idx == 6:
         env.mobility_type = 'lane_change'
-        env.v_init_range = [22.0, 23.0]
-        env.mobility_config = {'lane_positions': np.array([3.0, 6.0, 9.0]), 'change_probability': 0.3, 'change_duration': 1.0}
+        env.v_init_range = [15.0, 17.0]
+        env.mobility_config = {'lane_positions': np.array([3.0, 6.0, 9.0]), 'change_probability': 0.05, 'change_duration': 2.0}
     elif ep_idx == 7:
         env.mobility_type = 'lane_change'
-        env.v_init_range = [21.0, 22.0]
-        env.mobility_config = {'lane_positions': np.array([3.0, 6.0, 9.0]), 'change_probability': 0.9, 'change_duration': 1.0}
+        env.v_init_range = [15.0, 17.0]
+        env.mobility_config = {'lane_positions': np.array([3.0, 6.0, 9.0]), 'change_probability': 0.8, 'change_duration': 2.0}
     return get_scenario_title(ep_idx)
 
-def plot_fig4_combined_histogram_grid(env, model, vec_normalize_path=None, n_runs=100, save_dir='plots', seed=1472):
+def plot_fig4_combined_histogram_grid(env, model, vec_normalize_path=None, n_runs=100, save_dir='plots', seed=100):
     """
     Generates Fig4.png.
     Requirements: No main title, (a)-(h) titles, specific Mean text, axes everywhere, Y-lim 4.5.
@@ -132,11 +132,11 @@ def plot_fig4_combined_histogram_grid(env, model, vec_normalize_path=None, n_run
         ax.set_title(title, fontsize=12, fontweight='bold')
         ax.grid(True, alpha=0.3)
         ax.set_xlim(0, 1)
-        ax.set_ylim(0, 6)  # Requirement: Match y-axis scale [0, 4.5]
+        ax.set_ylim(0, 8)
         
         # Requirement: Axes labeled everywhere
-        ax.set_xlabel(r'Time-Division Factor ($\rho$)', fontsize=12)
-        ax.set_ylabel('Density of Observation', fontsize=12)
+        ax.set_xlabel(r'Sensing Fraction ($\rho$)', fontsize=12)
+        ax.set_ylabel('Density', fontsize=12)
 
         if ep_idx == 0:
             h, l = ax.get_legend_handles_labels()
@@ -201,7 +201,7 @@ def plot_fig5_grouped_trajectories(env, model, vec_normalize_path=None, n_runs=1
                     obs, reward, done, truncated, info = env.step(action)
                 
                 all_data[i][0][run, step] = info['rho']
-                all_data[i][1][run, step] = info['R_sum'] + 1
+                all_data[i][1][run, step] = info['R_sum']
                 all_data[i][2][run, step] = np.mean(info['crlbs_theta'])
                 all_data[i][3][run, step] = np.mean(info['crlbs_r'])
                 step += 1
@@ -229,10 +229,10 @@ def plot_fig5_grouped_trajectories(env, model, vec_normalize_path=None, n_runs=1
     # Generate 4 Separate Figures (Rows)
     # -------------------------------------------------------------------------
     row_configs = [
-        {'metric_idx': 0, 'ylabel': r'Time-division Factor ($\rho$)', 'color': 'blue', 'label': r'$\rho$', 'ylim': (0, 1), 'log': False, 'fname': 'Fig5-1.png'},
+        {'metric_idx': 0, 'ylabel': r'Sensing Fraction ($\rho$)', 'color': 'blue', 'label': r'$\rho$', 'ylim': (0, 1), 'log': False, 'fname': 'Fig5-1.png'},
         {'metric_idx': 1, 'ylabel': 'Sum Rate (bps/Hz)', 'color': 'green', 'label': 'Rate', 'ylim': None, 'log': False, 'fname': 'Fig5-2.png'},
-        {'metric_idx': 2, 'ylabel': r'CRLB of Angle Estimation (rad$^2$)', 'color': 'red', 'label': 'Angle CRLB', 'ylim': None, 'log': True, 'fname': 'Fig5-3.png'},
-        {'metric_idx': 3, 'ylabel': r'CRLB of Range Estimation (m$^2$)', 'color': 'orange', 'label': 'Range CRLB', 'ylim': None, 'log': True, 'fname': 'Fig5-4.png'},
+        {'metric_idx': 2, 'ylabel': r'CRLB$_{\mathrm{Angle}}$ (rad$^2$)', 'color': 'red', 'label': 'Angle CRLB', 'ylim': None, 'log': True, 'fname': 'Fig5-3.png'},
+        {'metric_idx': 3, 'ylabel': r'CRLB$_{\mathrm{Range}}$ (m$^2$)', 'color': 'orange', 'label': 'Range CRLB', 'ylim': None, 'log': True, 'fname': 'Fig5-4.png'},
     ]
 
     for cfg in row_configs:
@@ -281,8 +281,8 @@ def main():
     print("\nGenerating Fig 4 (Grid)...")
     plot_fig4_combined_histogram_grid(env, model, args.vec_normalize, args.n_runs, args.save_dir, args.seed)
     
-    #print("\nGenerating Fig 5 (Split Rows)...")
-    #plot_fig5_grouped_trajectories(env, model, args.vec_normalize, args.n_runs, args.save_dir, args.seed)
+    print("\nGenerating Fig 5 (Split Rows)...")
+    plot_fig5_grouped_trajectories(env, model, args.vec_normalize, args.n_runs, args.save_dir, args.seed)
 
 if __name__ == '__main__':
     main()
